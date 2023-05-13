@@ -1,5 +1,6 @@
 import { createServer } from 'http'
 import crypto from 'crypto'
+import { buffer } from 'stream/consumers'
 
 const PORT = 1337
 //BELOW IS DOCKS FOR WS HANDSHAKE WHERE MAGIC KEY COMES FROM. Sec-WebSocket-Accept header
@@ -48,7 +49,16 @@ function onSocketReadable(socket) {
 
   const maskKey = socket.read(MASK_KEY_BYTES_LENGTH)
   const encoded = socket.read(messageLength)
-  console.log(encoded)
+  const decoded = unmask(encoded, maskKey)
+  console.log(decoded)
+}
+
+function unmask(encodedBuffer, maskKey) {
+  const finalBuffer = Buffer.from(encodedBuffer)
+  for (let index = 0; index < encodedBuffer.length; index++) {
+    finalBuffer[index] = encodedBuffer[index] ^ maskKey[index % 4]
+  }
+  return finalBuffer
 }
 
 function prepareHandShakeHeaders(id) {
