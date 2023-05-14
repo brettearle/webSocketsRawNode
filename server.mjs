@@ -50,13 +50,33 @@ function onSocketReadable(socket) {
   const maskKey = socket.read(MASK_KEY_BYTES_LENGTH)
   const encoded = socket.read(messageLength)
   const decoded = unmask(encoded, maskKey)
-  console.log(decoded)
+  const recieved = decoded.toString('utf8')
+  const data = JSON.parse(recieved)
+  console.log('Message Recieved: ', data)
 }
 
 function unmask(encodedBuffer, maskKey) {
   const finalBuffer = Buffer.from(encodedBuffer)
+
+  //Index mod mask key byte length because mask key is 4 bytes
+  //index % 4 === 0, 1, 2, 3 = index bits needed to decode the message
+  //
+  // XOR ^
+  // returns 1 if both are different
+  // returns 0 if both are equal
+  //
+  // (71).toString(2).padStart(8, "0") = 01000111
+  // (53).toString(2).padStart(8, "0") = 00110101
+  //  XOR result                       = 01110010
+  //
+  //  we pass in the parsed int of XOR byte to fromCharCode to retrieve char from it
+  //  String.fromCharCode(parseInt('01110010', 2)) = 'r'
+  //
+  //  FINALLY USING XOR INSTEAD
+  //  String.fromCharCode(parseInt((71 ^ 53).toString(2).padStart(8, "0"), 2))
   for (let index = 0; index < encodedBuffer.length; index++) {
-    finalBuffer[index] = encodedBuffer[index] ^ maskKey[index % 4]
+    finalBuffer[index] =
+      encodedBuffer[index] ^ maskKey[index % MASK_KEY_BYTES_LENGTH]
   }
   return finalBuffer
 }
