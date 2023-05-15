@@ -13,6 +13,7 @@ const SIXTYFOUR_BITS_INTEGER_MARKER = 127
 const MASK_KEY_BYTES_LENGTH = 4
 //parseInt('10000000', 2) equals 128 which is a bit
 const FIRST_BIT = 128
+const OPCODE_TEXT = 0x01
 
 const server = createServer((request, response) => {
   response.writeHead(200)
@@ -28,6 +29,41 @@ function onSocketUpgrade(req, socket, head) {
   const headers = prepareHandShakeHeaders(webClientSocketKey)
   socket.write(headers)
   socket.on('readable', () => onSocketReadable(socket))
+}
+
+function sendMessage(msg, socket) {
+  const data = prepareMessage(msg)
+  socket.write(data)
+}
+
+function prepareMessage(msg) {
+  const message = Buffer.from(msg)
+  const msgSize = message.length
+
+  let dataFrameBuffer
+  let offset = 2
+
+  //128 as binary = 0x80
+  const firstByte = 0x80 | OPCODE_TEXT
+  if (msgSize <= SEVEN_BITS_INTEGER_MARKER) {
+    const bytes = [firstByte]
+    dataFrameBuffer = Buffer.from(bytes.concat(msgSize))
+  } else {
+    throw new Error('message to long')
+  }
+  const totalLength = dataFrameBuffer.byteLength + msgSize
+  const dataFrameResponse = concatBuff([dataFrameBuffer, message], totalLength)
+  return dataFrameResponse
+}
+
+function concatBuff(bufferList, totalLength) {
+  const target = Buffer.allocUnsafe(totalLength)
+  let offset = 0
+  for (const buffer of bufferList) {
+    target.set(buffer, offset)
+    offset += buffer.length
+  }
+  return target
 }
 
 function onSocketReadable(socket) {
@@ -53,6 +89,9 @@ function onSocketReadable(socket) {
   const recieved = decoded.toString('utf8')
   const data = JSON.parse(recieved)
   console.log('Message Recieved: ', data)
+
+  const msg = JSON.stringify(data)
+  sendMessage(msg, socket)
 }
 
 function unmask(encodedBuffer, maskKey) {
@@ -74,9 +113,23 @@ function unmask(encodedBuffer, maskKey) {
   //
   //  FINALLY USING XOR INSTEAD
   //  String.fromCharCode(parseInt((71 ^ 53).toString(2).padStart(8, "0"), 2))
+  const fillWithEightZeros = (t) => t.padStart(8, '0')
+  const toBinary = (t) => fillWithEightZeros(t.toString(2))
+  const fromBinaryToDecimal = (t) => parseInt(toBinary(t), 2)
+  const getCharFromBinary = (t) => String.fromCharCode(fromBinaryToDecimal(t))
+
   for (let index = 0; index < encodedBuffer.length; index++) {
     finalBuffer[index] =
       encodedBuffer[index] ^ maskKey[index % MASK_KEY_BYTES_LENGTH]
+
+    const logger = {
+      unmaskingCalc: `${toBinary(encodedBuffer[index])} ^ ${
+        maskKey[index % MASK_KEY_BYTES_LENGTH]
+      } 
+      = ${toBinary(finalBuffer[index])}`,
+      decoded: getCharFromBinary(finalBuffer[index])
+    }
+    console.log(logger)
   }
   return finalBuffer
 }

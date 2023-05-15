@@ -7,6 +7,7 @@
   </head>
 
   <body>
+    <p>Returned Message</p>
     <output id="messages"></output>
     <script>
       const messages = document.getElementById('messages')
@@ -27,7 +28,11 @@
         })
         socket.send(data)
       }
-      socket.onmessage = (msg) => console.log('WS got a message', msg)
+      socket.onmessage = (msg) => {
+        const message = msg.data
+        console.log('WS got a message', message)
+        messages.innerHTML += `<p>${message}</p>`
+      }
       socket.onerror = (error) => console.error('error from web socket', error)
       socket.onclose = (event) => console.log('disconnected from web socket')
       console.log(socket)
