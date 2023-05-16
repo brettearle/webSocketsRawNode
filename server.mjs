@@ -9,7 +9,7 @@ const WEB_SOCKET_SERVER_MAGIC_KEY = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
 const SEVEN_BITS_INTEGER_MARKER = 125
 const SIXTEEN_BITS_INTEGER_MARKER = 126
 const SIXTYFOUR_BITS_INTEGER_MARKER = 127
-
+const MAX_SIXTEENBITS_INT = 2 ** 16
 const MASK_KEY_BYTES_LENGTH = 4
 //parseInt('10000000', 2) equals 128 which is a bit
 const FIRST_BIT = 128
@@ -41,13 +41,20 @@ function prepareMessage(msg) {
   const msgSize = message.length
 
   let dataFrameBuffer
-  let offset = 2
 
   //128 as binary = 0x80
   const firstByte = 0x80 | OPCODE_TEXT
   if (msgSize <= SEVEN_BITS_INTEGER_MARKER) {
     const bytes = [firstByte]
     dataFrameBuffer = Buffer.from(bytes.concat(msgSize))
+  } else if (msgSize <= MAX_SIXTEENBITS_INT) {
+    const offsetFourBytes = 4
+    const target = Buffer.allocUnsafe(offsetFourBytes)
+    target[0] = firstByte
+    target[1] = SIXTEEN_BITS_INTEGER_MARKER
+
+    target.writeUint16BE(msgSize, 2)
+    dataFrameBuffer = target
   } else {
     throw new Error('message to long')
   }
@@ -79,6 +86,9 @@ function onSocketReadable(socket) {
   let messageLength = 0
   if (lengthIndicatorInBits <= SEVEN_BITS_INTEGER_MARKER) {
     messageLength = lengthIndicatorInBits
+  } else if (lengthIndicatorInBits === SIXTEEN_BITS_INTEGER_MARKER) {
+    //unsigned big-endian 16-bit int
+    messageLength = socket.read(2).readUint16BE(0)
   } else {
     throw new Error('your message to long we dont handle 64-bit message')
   }
@@ -90,7 +100,7 @@ function onSocketReadable(socket) {
   const data = JSON.parse(recieved)
   console.log('Message Recieved: ', data)
 
-  const msg = JSON.stringify(data)
+  const msg = JSON.stringify({ message: data, at: new Date().toISOString() })
   sendMessage(msg, socket)
 }
 

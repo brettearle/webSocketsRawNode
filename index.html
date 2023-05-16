@@ -17,15 +17,35 @@
         console.log('WS connected')
         const id = Math.round(Math.random() * 100)
         console.log('sending msg.....')
-        const data = JSON.stringify({
-          id,
-          name: `[${id}] Brett Earle`,
-          address: {
-            street: 'my street',
-            number: 20 * id
+        const data = JSON.stringify([
+          {
+            id,
+            name: `[${id}] Brett`,
+            address: {
+              street: 'my street',
+              number: 20 * id
+            },
+            proffession: 'developer'
           },
-          proffession: 'developer'
-        })
+          {
+            id,
+            name: `[${id}] Jane`,
+            address: {
+              street: 'my street',
+              number: 20 * id
+            },
+            proffession: 'developer'
+          },
+          {
+            id,
+            name: `[${id}] Johnny`,
+            address: {
+              street: 'my street',
+              number: 20 * id
+            },
+            proffession: 'developer'
+          }
+        ])
         socket.send(data)
       }
       socket.onmessage = (msg) => {
